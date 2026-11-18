@@ -124,7 +124,7 @@ else:
 # ==========================================
 # 4. NAVIGATION (5 ONGLETS)
 # ==========================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📉 Étudiants & Santé Mentale",
     "👶 Enfants & Dépendance",
     "🌍 Données OMS Officielles",
