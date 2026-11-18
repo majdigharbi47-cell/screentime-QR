@@ -316,62 +316,7 @@ with tab4:
     </div>
     """, unsafe_allow_html=True)
 
-# ==========================================
-# TAB 5 : DIFFUSION & QR CODE
-# ==========================================
-with tab5:
-    st.title("📱 Diffusion du projet")
-    
-    st.subheader("Comment partager ce dashboard ?")
-    st.markdown("""
-    Ce dashboard est accessible gratuitement via un QR code. 
-    N'importe qui peut le scanner avec son téléphone pour explorer les données.
-    """)
-    
-    st.markdown("---")
-    
-    # Génération du QR Code via API (pas besoin de librairie Python)
-    app_url = "https://screentime-qr-hrfrytnrf9sfrznxejvlsm.streamlit.app/"
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={app_url}"
-    
-    st.subheader("🔗 Lien public du dashboard")
-    st.code(app_url, language=None)
-    st.image(qr_url, caption="Scannez pour explorer les données vous-même", width=250)
-    
-    st.markdown("---")
-    
-    st.subheader("📍 Lieux de diffusion prévus")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-        ### 🎓 Campus universitaire
-        - **Affiches** dans les halls et cafétérias
-        - **QR code** imprimé sur les affiches
-        - **Cible** : étudiants 18-24 ans
-        
-        ### 📱 Réseaux sociaux
-        - **Instagram/TikTok** de l'établissement
-        - **Format** : infographie courte + lien en bio
-        """)
-    with col2:
-        st.markdown("""
-        ### 👨‍👩‍👧 Parents
-        - **Newsletter** de l'établissement
-        - **Page dédiée** sur le site web
-        
-        ### 🏥 Services de prévention
-        - **Infirmerie scolaire**
-        - **Ateliers** de sensibilisation
-        """)
-    
-    st.markdown("---")
-    st.info("""
-    💡 **Comment utiliser le QR code ?**
-    1. Ouvrez l'appareil photo de votre téléphone
-    2. Pointez le QR code affiché sur l'affiche
-    3. Cliquez sur le lien qui apparaît
-    4. Explorez le dashboard interactif gratuitement
-    """)
+
 
 # Footer
 st.markdown("---")
