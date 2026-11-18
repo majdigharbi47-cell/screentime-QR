@@ -7,25 +7,21 @@ import os
 import base64
 
 # ==========================================
-# 0. GESTION DES CHEMINS (ROBUSTE POUR STREAMLIT CLOUD)
+# 0. GESTION DES CHEMINS (ROBUSTE POUR CLOUD)
 # ==========================================
-# Cette ligne trouve automatiquement le dossier où se trouve app.py
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_base64_image(filename):
-    """Convertit une image en base64 pour le CSS."""
     path = os.path.join(CURRENT_DIR, "images", filename)
     if os.path.exists(path):
         with open(path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
     return None
 
-def display_image_with_caption(filename, caption_text):
-    """Affiche une image avec légende."""
+def safe_image(filename, caption=None):
     path = os.path.join(CURRENT_DIR, "images", filename)
     if os.path.exists(path):
-        st.image(path, width='stretch')
-        st.markdown(f'<div class="caption-box">{caption_text}</div>', unsafe_allow_html=True)
+        st.image(path, caption=caption, use_column_width=True)
     else:
         st.info(f"📷 Image non disponible : {filename}")
 
@@ -63,11 +59,10 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. CHARGEMENT DES DONNÉES (CHEMINS CORRIGÉS)
+# 2. CHARGEMENT DES DONNÉES
 # ==========================================
 @st.cache_data
 def load_data():
-    # Utilisation de CURRENT_DIR pour trouver les fichiers à coup sûr
     file_students = os.path.join(CURRENT_DIR, "data", "Social_media_impact_on_life.csv")
     file_kids = os.path.join(CURRENT_DIR, "data", "Indian_Kids_Screen_Time.csv")
     
@@ -92,8 +87,6 @@ def load_data():
         df_students['Risque_Anxiete'] = np.where((df_students['Mental_Health_Score'] <= 6) & (df_students['Sleep_Hours_Per_Night'] < 7), 'Élevé', 'Faible')
         df_students['Notes_Scolaires'] = np.clip(14.0 - (df_students['Avg_Daily_Usage_Hours'] > 4).astype(int) * 3.0 - (df_students['Sleep_Hours_Per_Night'] < 7).astype(int) * 2.0 + np.random.normal(0, 1.5, len(df_students)), 0, 20)
         df_students['Social_Health_Score'] = np.clip(8.0 - (df_students['Avg_Daily_Usage_Hours'] > 4).astype(int) * 2.0 + np.random.normal(0, 1, len(df_students)), 1, 10)
-    else:
-        st.warning(f"⚠️ Fichier étudiants introuvable. Chemin recherché : {file_students}")
 
     if os.path.exists(file_kids):
         df_kids = pd.read_csv(file_kids)
@@ -101,8 +94,6 @@ def load_data():
         df_kids['Health_Impacts'] = df_kids['Health_Impacts'].replace('None', 'Aucun')
         df_kids['exceeded_limit'] = df_kids['Exceeded_Recommended_Limit'].apply(lambda x: 1 if str(x).lower() == 'true' else 0)
         df_kids['Avg_Daily_Screen_Time_hr'] = pd.to_numeric(df_kids['Avg_Daily_Screen_Time_hr'], errors='coerce')
-    else:
-        st.warning(f"⚠️ Fichier enfants introuvable. Chemin recherché : {file_kids}")
 
     return df_students, df_kids
 
@@ -131,13 +122,14 @@ else:
     st.sidebar.success("✅ Vous êtes dans la zone saine.")
 
 # ==========================================
-# 4. NAVIGATION
+# 4. NAVIGATION (5 ONGLETS)
 # ==========================================
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📉 Étudiants & Santé Mentale",
     "👶 Enfants & Dépendance",
     "🌍 Données OMS Officielles",
-    "🩺 Médecin & Recommandations"
+    "🩺 Médecin & Recommandations",
+    "📱 Diffusion & QR Code"
 ])
 
 # ==========================================
@@ -161,7 +153,7 @@ with tab1:
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=df_agg['tranche_usage'], y=df_agg['Sleep_Hours_Per_Night'], mode='lines+markers', name='Sommeil (h)', line=dict(color=COLOR_NEU, width=3), yaxis='y'))
         fig1.add_trace(go.Scatter(x=df_agg['tranche_usage'], y=df_agg['Mental_Health_Score'], mode='lines+markers', name='Santé Mentale (/10)', line=dict(color=COLOR_NEG, width=3), yaxis='y2'))
-        fig1.update_layout(yaxis=dict(title="Heures de sommeil", range=[4, 9]), yaxis2=dict(title="Score Santé Mentale", range=[4, 9], overlaying='y', side='right'), legend=dict(orientation="h", y=-0.2), hovermode="x unified", plot_bgcolor='white', paper_bgcolor='white')
+        fig1.update_layout(yaxis=dict(title="Heures de sommeil", range=[4, 9]), yaxis2=dict(title="Score Santé Mentale", range=[4, 9], overlaying='y', side='right'), legend=dict(orientation="h", y=-0.2), hovermode="x unified", plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
         fig1.add_hline(y=7, line_dash="dash", line_color="green", annotation_text="Seuil 7h")
         st.plotly_chart(fig1, use_container_width=True)
         st.markdown('<div class="caption-box">Figure 1 : Plus le temps d\'écran augmente, plus le sommeil et la santé mentale chutent. Le seuil critique se situe à 4h.</div>', unsafe_allow_html=True)
@@ -171,7 +163,7 @@ with tab1:
         df_impact['total'] = df_impact.groupby('tranche_usage')['count'].transform('sum')
         df_impact['percentage'] = (df_impact['count'] / df_impact['total']) * 100
         fig2 = px.bar(df_impact, x='tranche_usage', y='percentage', color='Overall_Impact', color_discrete_map={'Negative': COLOR_NEG, 'Neutral': '#6C757D', 'Positive': COLOR_NEU})
-        fig2.update_layout(yaxis_title="Pourcentage (%)", xaxis_title="Temps d'écran", barmode='stack', plot_bgcolor='white', paper_bgcolor='white')
+        fig2.update_layout(yaxis_title="Pourcentage (%)", xaxis_title="Temps d'écran", barmode='stack', plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
         st.plotly_chart(fig2, use_container_width=True)
         st.markdown('<div class="caption-box">Figure 2 : À partir de 4h, plus de la moitié des étudiants déclarent un impact négatif.</div>', unsafe_allow_html=True)
 
@@ -185,7 +177,7 @@ with tab1:
             df_dep['percentage'] = (df_dep['count'] / df_dep['total']) * 100
             df_dep = df_dep[df_dep['Risque_Depression'] == 'Oui']
             fig3 = px.bar(df_dep, x='tranche_usage', y='percentage', color='percentage', color_continuous_scale=[COLOR_POS, COLOR_NEG], title="% à risque de dépression")
-            fig3.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+            fig3.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
             st.plotly_chart(fig3, use_container_width=True)
             st.markdown('<div class="caption-box">Figure 3 : Le risque de dépression (score ≤ 4) augmente avec le temps d\'écran.</div>', unsafe_allow_html=True)
         with col2:
@@ -193,7 +185,7 @@ with tab1:
             df_anx = df_students['Risque_Anxiete'].value_counts().reset_index()
             df_anx.columns = ['Niveau', 'Nombre']
             fig4 = px.pie(df_anx, values='Nombre', names='Niveau', color_discrete_sequence=[COLOR_POS, COLOR_NEG], title="Anxiété élevée vs faible", hole=0.4)
-            fig4.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+            fig4.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
             st.plotly_chart(fig4, use_container_width=True)
             st.markdown('<div class="caption-box">Figure 4 : Part des étudiants à risque d\'anxiété élevé (score ≤ 6 et sommeil < 7h).</div>', unsafe_allow_html=True)
 
@@ -201,7 +193,7 @@ with tab1:
         with col3:
             st.subheader("5. Distribution des notes")
             fig5 = px.violin(df_students, x='tranche_usage', y='Notes_Scolaires', color='tranche_usage', box=True, points="all", color_discrete_map={"0-2h": COLOR_POS, "2-4h": COLOR_NEU, "4-6h": COLOR_WARN, "6h+": COLOR_NEG}, title="Notes (/20) par tranche")
-            fig5.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+            fig5.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
             st.plotly_chart(fig5, use_container_width=True)
             st.markdown('<div class="caption-box">Figure 5 : Les notes chutent significativement au-delà de 4h d\'écran.</div>', unsafe_allow_html=True)
         with col4:
@@ -210,13 +202,13 @@ with tab1:
             df_social['tranche_usage'] = pd.Categorical(df_social['tranche_usage'], categories=order, ordered=True)
             df_social = df_social.sort_values('tranche_usage')
             fig6 = px.bar(df_social, x='tranche_usage', y='Social_Health_Score', color='Social_Health_Score', color_continuous_scale=[COLOR_NEG, COLOR_POS], title="Santé sociale (/10)")
-            fig6.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+            fig6.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
             st.plotly_chart(fig6, use_container_width=True)
             st.markdown('<div class="caption-box">Figure 6 : La santé sociale se dégrade avec l\'usage excessif.</div>', unsafe_allow_html=True)
 
         st.markdown("---")
         st.subheader("La science derrière les chiffres")
-        display_image_with_caption("graph_dopamine_sommeil.png", "Figure 7 : Corrélation entre temps d'écran, qualité du sommeil et décharges de dopamine.")
+        safe_image("graph_dopamine_sommeil.png", "Figure 7 : Corrélation entre temps d'écran, qualité du sommeil et décharges de dopamine.")
 
 # ==========================================
 # TAB 2 : ENFANTS
@@ -234,7 +226,7 @@ with tab2:
             df_device = df_device.sort_values('Avg_Daily_Screen_Time_hr', ascending=False)
             fig7 = px.bar(df_device, x='Primary_Device', y='Avg_Daily_Screen_Time_hr', color='Avg_Daily_Screen_Time_hr', color_continuous_scale=[COLOR_POS, COLOR_NEG])
             fig7.add_hline(y=4, line_dash="dash", line_color="red", annotation_text="Moyenne (~4.2h)")
-            fig7.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+            fig7.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
             st.plotly_chart(fig7, use_container_width=True)
             st.markdown('<div class="caption-box">Figure 8 : Quel que soit l\'appareil, les enfants passent plus de 4h par jour devant un écran.</div>', unsafe_allow_html=True)
         with col2:
@@ -242,12 +234,12 @@ with tab2:
             df_health = df_kids[df_kids['Health_Impacts'] != 'Aucun']['Health_Impacts'].value_counts().head(5).reset_index()
             df_health.columns = ['Impact', 'Nombre']
             fig8 = px.pie(df_health, values='Nombre', names='Impact', color_discrete_sequence=px.colors.qualitative.Set2, hole=0.4)
-            fig8.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+            fig8.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
             st.plotly_chart(fig8, use_container_width=True)
             st.markdown('<div class="caption-box">Figure 9 : Impacts les plus fréquents : troubles du sommeil et fatigue oculaire.</div>', unsafe_allow_html=True)
         st.markdown("---")
         st.subheader("L'impact social et émotionnel")
-        display_image_with_caption("enfant_triste_fenetre.png", "Figure 10 : L'isolement social. L'enfant connecté perd le contact avec le monde réel.")
+        safe_image("enfant_triste_fenetre.png", "Figure 10 : L'isolement social. L'enfant connecté perd le contact avec le monde réel.")
 
 # ==========================================
 # TAB 3 : OMS
@@ -268,7 +260,7 @@ with tab3:
         st.subheader("9. Usage problématique par pays")
         fig_oms1 = px.bar(df_oms, x="Pays", y="Usage_Problematique_Pct", color="Usage_Problematique_Pct", color_continuous_scale=[COLOR_POS, "#F4A261", COLOR_NEG])
         fig_oms1.add_hline(y=11, line_dash="dash", line_color="red", annotation_text="Moyenne OMS: 11%")
-        fig_oms1.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+        fig_oms1.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
         st.plotly_chart(fig_oms1, use_container_width=True)
         st.markdown('<div class="caption-box">Figure 11 : L\'Espagne et la France dépassent la moyenne OMS de 11%.</div>', unsafe_allow_html=True)
     with col2:
@@ -276,13 +268,13 @@ with tab3:
         df_gender = df_oms.melt(id_vars=["Pays"], value_vars=["Filles_Pct", "Garcons_Pct"], var_name="Genre", value_name="Pourcentage")
         df_gender['Genre'] = df_gender['Genre'].replace({'Filles_Pct': 'Filles', 'Garcons_Pct': 'Garçons'})
         fig_oms2 = px.bar(df_gender, x="Pays", y="Pourcentage", color="Genre", barmode="group", color_discrete_map={"Filles": "#E63946", "Garçons": COLOR_NEU})
-        fig_oms2.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+        fig_oms2.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
         st.plotly_chart(fig_oms2, use_container_width=True)
         st.markdown('<div class="caption-box">Figure 12 : Les filles sont plus touchées que les garçons dans tous les pays.</div>', unsafe_allow_html=True)
     st.subheader("11. Sommeil insuffisant par pays")
     fig_oms3 = px.bar(df_oms, x="Pays", y="Sommeil_Insuffisant_Pct", color="Sommeil_Insuffisant_Pct", color_continuous_scale=[COLOR_POS, COLOR_NEG])
     fig_oms3.add_hline(y=29, line_dash="dash", line_color="red", annotation_text="Moyenne OMS: 29%")
-    fig_oms3.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+    fig_oms3.update_layout(plot_bgcolor='white', paper_bgcolor='white', font=dict(color='black'))
     st.plotly_chart(fig_oms3, use_container_width=True)
     st.markdown('<div class="caption-box">Figure 13 : Près d\'un adolescent sur trois dort moins de 8 heures par nuit.</div>', unsafe_allow_html=True)
 
@@ -324,5 +316,63 @@ with tab4:
     </div>
     """, unsafe_allow_html=True)
 
+# ==========================================
+# TAB 5 : DIFFUSION & QR CODE
+# ==========================================
+with tab5:
+    st.title("📱 Diffusion du projet")
+    
+    st.subheader("Comment partager ce dashboard ?")
+    st.markdown("""
+    Ce dashboard est accessible gratuitement via un QR code. 
+    N'importe qui peut le scanner avec son téléphone pour explorer les données.
+    """)
+    
+    st.markdown("---")
+    
+    # Génération du QR Code via API (pas besoin de librairie Python)
+    app_url = "https://screentime-qr-hrfrytnrf9sfrznxejvlsm.streamlit.app/"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={app_url}"
+    
+    st.subheader("🔗 Lien public du dashboard")
+    st.code(app_url, language=None)
+    st.image(qr_url, caption="Scannez pour explorer les données vous-même", width=250)
+    
+    st.markdown("---")
+    
+    st.subheader("📍 Lieux de diffusion prévus")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        ### 🎓 Campus universitaire
+        - **Affiches** dans les halls et cafétérias
+        - **QR code** imprimé sur les affiches
+        - **Cible** : étudiants 18-24 ans
+        
+        ### 📱 Réseaux sociaux
+        - **Instagram/TikTok** de l'établissement
+        - **Format** : infographie courte + lien en bio
+        """)
+    with col2:
+        st.markdown("""
+        ### 👨‍👩‍👧 Parents
+        - **Newsletter** de l'établissement
+        - **Page dédiée** sur le site web
+        
+        ### 🏥 Services de prévention
+        - **Infirmerie scolaire**
+        - **Ateliers** de sensibilisation
+        """)
+    
+    st.markdown("---")
+    st.info("""
+    💡 **Comment utiliser le QR code ?**
+    1. Ouvrez l'appareil photo de votre téléphone
+    2. Pointez le QR code affiché sur l'affiche
+    3. Cliquez sur le lien qui apparaît
+    4. Explorez le dashboard interactif gratuitement
+    """)
+
+# Footer
 st.markdown("---")
 st.caption("📊 Projet Visualisation des Données - Licence Big Data | Abdallah Yazidi & Majdi Gharbi | Sources : HBSC/OMS, DataReportal, Kaggle")
